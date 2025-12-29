@@ -38,6 +38,19 @@ public class BetterGrindstoneBlockEntity extends BlockEntity
         super(WDABBetterGrindstone.BETTER_GRINDSTONE_BE, pos, state);
     }
 
+    // ---- Step 4 hook: called on rising redstone edge ----
+    public void tryGrindOnce() {
+        if (world == null || world.isClient())
+            return;
+
+        // For Option B, we will:
+        // 1) compute the exact vanilla grindstone output for (slot0, slot1)
+        // 2) if output is non-empty and slot2 can accept it, place output in slot2
+        // 3) consume inputs exactly like "taking" the output in the UI
+        //
+        // For now: do nothing until we port the vanilla logic.
+    }
+
     // ---- Inventory ----
     @Override
     public int size() {
@@ -86,7 +99,6 @@ public class BetterGrindstoneBlockEntity extends BlockEntity
     private void onInventoryChanged() {
         markDirty();
         if (world != null && !world.isClient()) {
-            // Not strictly needed yet, but it’s the hook we’ll use for comparator later.
             world.updateComparators(pos, getCachedState().getBlock());
         }
     }
@@ -126,24 +138,20 @@ public class BetterGrindstoneBlockEntity extends BlockEntity
             return SLOTS_UP;
         if (side == Direction.DOWN)
             return SLOTS_DOWN;
-        return SLOTS_SIDE; // north/east/south/west
+        return SLOTS_SIDE;
     }
 
     @Override
     public boolean canInsert(int slot, ItemStack stack, Direction dir) {
-        // Only allow insertion into inputs, and only from the intended sides
-        if (slot == SLOT_INPUT_TOP) {
+        if (slot == SLOT_INPUT_TOP)
             return dir == Direction.UP;
-        }
-        if (slot == SLOT_INPUT_SIDE) {
-            return dir != Direction.UP && dir != Direction.DOWN; // horizontal sides
-        }
-        return false; // never insert into output
+        if (slot == SLOT_INPUT_SIDE)
+            return dir != Direction.UP && dir != Direction.DOWN;
+        return false;
     }
 
     @Override
     public boolean canExtract(int slot, ItemStack stack, Direction dir) {
-        // Only extract output, only downward (hopper under)
         return slot == SLOT_OUTPUT && dir == Direction.DOWN;
     }
 

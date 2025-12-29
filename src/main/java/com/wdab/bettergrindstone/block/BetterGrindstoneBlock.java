@@ -2,12 +2,15 @@ package com.wdab.bettergrindstone.block;
 
 import com.mojang.serialization.MapCodec;
 import com.wdab.bettergrindstone.block.entity.BetterGrindstoneBlockEntity;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.state.StateManager;
+import net.minecraft.state.property.BooleanProperty;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
@@ -18,13 +21,21 @@ import net.minecraft.world.World;
 public class BetterGrindstoneBlock extends BlockWithEntity {
     public static final MapCodec<BetterGrindstoneBlock> CODEC = createCodec(BetterGrindstoneBlock::new);
 
+    public static final BooleanProperty POWERED = BooleanProperty.of("powered");
+
     public BetterGrindstoneBlock(Settings settings) {
         super(settings);
+        this.setDefaultState(this.getStateManager().getDefaultState().with(POWERED, false));
     }
 
     @Override
     protected MapCodec<? extends BlockWithEntity> getCodec() {
         return CODEC;
+    }
+
+    @Override
+    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+        builder.add(POWERED);
     }
 
     @Override
@@ -61,10 +72,7 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
         super.onStateReplaced(state, world, pos, moved);
     }
 
-    // ---- Comparator output ----
-    // In your 1.21.11 mappings these are protected methods (from AbstractBaseBlock)
-    // and getComparatorOutput includes a Direction parameter.
-
+    // ---- Comparator output (your 1.21.11 signature) ----
     protected boolean hasComparatorOutput(BlockState state) {
         return true;
     }
@@ -75,5 +83,30 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
             return grindstoneBe.getStack(BetterGrindstoneBlockEntity.SLOT_OUTPUT).isEmpty() ? 0 : 15;
         }
         return 0;
+    }
+
+    // ---- Redstone pulse activation ----
+    // NOTE: In your mappings, the super method name/signature differs, so we do NOT
+    // @Override.
+    // Minecraft will still call this method if it matches the actual runtime
+    // signature.
+    protected void neighborUpdate(BlockState state, World world, BlockPos pos, Block sourceBlock, BlockPos sourcePos,
+            boolean notify) {
+        if (world.isClient())
+            return;
+
+        boolean nowPowered = world.isReceivingRedstonePower(pos);
+        boolean wasPowered = state.get(POWERED);
+
+        if (nowPowered && !wasPowered) {
+            BlockEntity be = world.getBlockEntity(pos);
+            if (be instanceof BetterGrindstoneBlockEntity grindstoneBe) {
+                grindstoneBe.tryGrindOnce();
+            }
+        }
+
+        if (nowPowered != wasPowered) {
+            world.setBlockState(pos, state.with(POWERED, nowPowered), 3);
+        }
     }
 }
