@@ -2,9 +2,12 @@ package com.wdab.bettergrindstone.screen;
 
 import com.wdab.bettergrindstone.WDABBetterGrindstone;
 import com.wdab.bettergrindstone.block.entity.BetterGrindstoneBlockEntity;
+
+import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.ScreenHandlerContext;
@@ -16,7 +19,6 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
     private final Inventory inventory;
     private final ScreenHandlerContext context;
 
-    // Server-side constructor (BlockEntity passes its inventory + context)
     public BetterGrindstoneScreenHandler(int syncId, PlayerInventory playerInv, Inventory inventory,
             ScreenHandlerContext context) {
         super(WDABBetterGrindstone.BETTER_GRINDSTONE_SCREEN_HANDLER, syncId);
@@ -25,9 +27,29 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
         this.inventory = inventory;
         this.context = context;
 
-        // Inputs
-        this.addSlot(new Slot(inventory, BetterGrindstoneBlockEntity.SLOT_INPUT_TOP, 62, 20));
-        this.addSlot(new Slot(inventory, BetterGrindstoneBlockEntity.SLOT_INPUT_SIDE, 80, 20));
+        // Input 0
+        this.addSlot(new Slot(inventory, BetterGrindstoneBlockEntity.SLOT_INPUT_TOP, 62, 20) {
+            @Override
+            public boolean canInsert(ItemStack stack) {
+                if (!(inventory instanceof BetterGrindstoneBlockEntity be))
+                    return false;
+                return BetterGrindstoneBlockEntity.isValidGrindInput(stack)
+                        && be.isCompatibleWithOtherSlot(BetterGrindstoneBlockEntity.SLOT_INPUT_TOP, stack)
+                        && be.getStack(BetterGrindstoneBlockEntity.SLOT_OUTPUT).isEmpty();
+            }
+        });
+
+        // Input 1
+        this.addSlot(new Slot(inventory, BetterGrindstoneBlockEntity.SLOT_INPUT_SIDE, 80, 20) {
+            @Override
+            public boolean canInsert(ItemStack stack) {
+                if (!(inventory instanceof BetterGrindstoneBlockEntity be))
+                    return false;
+                return BetterGrindstoneBlockEntity.isValidGrindInput(stack)
+                        && be.isCompatibleWithOtherSlot(BetterGrindstoneBlockEntity.SLOT_INPUT_SIDE, stack)
+                        && be.getStack(BetterGrindstoneBlockEntity.SLOT_OUTPUT).isEmpty();
+            }
+        });
 
         // Output
         this.addSlot(new Slot(inventory, BetterGrindstoneBlockEntity.SLOT_OUTPUT, 134, 20) {
@@ -40,13 +62,15 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
             public void onTakeItem(PlayerEntity player, ItemStack stack) {
                 if (inventory instanceof BetterGrindstoneBlockEntity be) {
                     World world = player.getEntityWorld();
-                    be.onOutputTaken(world);
+                    // IMPORTANT: use the taken stack, NOT be.getStack(OUTPUT) (it may be empty
+                    // already).
+                    be.onOutputTakenByPlayer(world, stack);
                 }
                 super.onTakeItem(player, stack);
             }
         });
 
-        // Player inventory (3 rows)
+        // Player inventory
         int startX = 8;
         int startY = 51;
         for (int row = 0; row < 3; row++) {
@@ -62,11 +86,7 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
         }
     }
 
-    /**
-     * Factory constructor for ExtendedScreenHandlerType:
-     * signature must be (int, PlayerInventory, D) where D is the opening data
-     * (BlockPos).
-     */
+    // ExtendedScreenHandlerType factory constructor
     public BetterGrindstoneScreenHandler(int syncId, PlayerInventory playerInv, BlockPos pos) {
         this(
                 syncId,
@@ -80,8 +100,7 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
         if (world.getBlockEntity(pos) instanceof BetterGrindstoneBlockEntity be) {
             return be;
         }
-        // Fallback to a dummy inventory to avoid crashing if something is off
-        return new net.minecraft.inventory.SimpleInventory(3);
+        return new SimpleInventory(3);
     }
 
     @Override
@@ -91,13 +110,12 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
 
     @Override
     public ItemStack quickMove(PlayerEntity player, int index) {
-        ItemStack newStack = ItemStack.EMPTY;
         Slot slot = this.slots.get(index);
         if (slot == null || !slot.hasStack())
             return ItemStack.EMPTY;
 
         ItemStack original = slot.getStack();
-        newStack = original.copy();
+        ItemStack copy = original.copy();
 
         int blockInvSize = 3;
 
@@ -107,7 +125,7 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
                 return ItemStack.EMPTY;
             }
         } else {
-            // from player -> block inputs only (0..2 exclusive of output slot 2)
+            // from player -> block inputs only
             if (!this.insertItem(original, 0, 2, false)) {
                 return ItemStack.EMPTY;
             }
@@ -119,6 +137,9 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
             slot.markDirty();
         }
 
-        return newStack;
+        // Ensure output slot hooks fire even on shift-click
+        slot.onTakeItem(player, original);
+
+        return copy;
     }
 }

@@ -1,9 +1,12 @@
 package com.wdab.bettergrindstone.block.entity;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap.Entry;
+
 import com.wdab.bettergrindstone.WDABBetterGrindstone;
 import com.wdab.bettergrindstone.screen.BetterGrindstoneScreenHandler;
+
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
+
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.ItemEnchantmentsComponent;
 import net.minecraft.enchantment.Enchantment;
@@ -18,7 +21,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.EnchantmentTags;
-import net.minecraft.screen.AnvilScreenHandler; // ✅ FIX
+import net.minecraft.screen.AnvilScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.ScreenHandlerContext;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -47,57 +50,115 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
 
     private final DefaultedList<ItemStack> items = DefaultedList.ofSize(SIZE, ItemStack.EMPTY);
 
+    /**
+     * True => output is finalized and may be extracted by hopper (DOWN).
+     * False => output is preview-only (player can take; hopper can't).
+     */
+    private boolean outputFinalized = false;
+
     public BetterGrindstoneBlockEntity(BlockPos pos, net.minecraft.block.BlockState state) {
         super(WDABBetterGrindstone.BETTER_GRINDSTONE_BE, pos, state);
     }
 
     // -------------------------------------------------------------------------
-    // 4.2: Vanilla grindstone logic (ported from GrindstoneScreenHandler)
+    // Validity / Compatibility
     // -------------------------------------------------------------------------
 
-    private void recomputeOutputVanilla() {
-        // Only compute/refresh if output is empty.
-        // If output is non-empty, treat it as "ready/locked" until extracted.
-        if (!getStack(SLOT_OUTPUT).isEmpty()) {
+    public static boolean isValidGrindInput(ItemStack stack) {
+        // Mirror vanilla: damageable OR has enchantments
+        return !stack.isEmpty() && (stack.isDamageable() || EnchantmentHelper.hasEnchantments(stack));
+    }
+
+    /**
+     * If other is empty, accept any valid input.
+     * If other is non-empty, only accept if together they produce a non-empty
+     * output.
+     */
+    public boolean isCompatibleWithOtherSlot(int slot, ItemStack candidate) {
+        if (!isValidGrindInput(candidate))
+            return false;
+
+        ItemStack other = (slot == SLOT_INPUT_TOP) ? getStack(SLOT_INPUT_SIDE) : getStack(SLOT_INPUT_TOP);
+        if (other.isEmpty())
+            return true;
+
+        // must be compatible enough to produce a result
+        ItemStack out = getOutputStack(
+                slot == SLOT_INPUT_TOP ? candidate : other,
+                slot == SLOT_INPUT_TOP ? other : candidate);
+        return !out.isEmpty();
+    }
+
+    // -------------------------------------------------------------------------
+    // Preview output computation (non-finalized)
+    // -------------------------------------------------------------------------
+
+    private void recomputePreviewOutputIfNeeded() {
+        // Only compute preview if output slot is empty
+        if (!getStack(SLOT_OUTPUT).isEmpty())
             return;
-        }
 
         ItemStack out = getOutputStack(getStack(SLOT_INPUT_TOP), getStack(SLOT_INPUT_SIDE));
-        if (!ItemStack.areEqual(out, getStack(SLOT_OUTPUT))) {
+        if (!out.isEmpty()) {
             setStackInternal(SLOT_OUTPUT, out);
+            outputFinalized = false;
             onInventoryChanged();
         }
     }
 
-    public void onOutputTaken(World world) {
-        if (world.isClient())
-            return;
+    // -------------------------------------------------------------------------
+    // Grind triggers
+    // -------------------------------------------------------------------------
 
-        if (getStack(SLOT_INPUT_TOP).isEmpty() && getStack(SLOT_INPUT_SIDE).isEmpty()) {
-            return;
-        }
-
-        spawnXpAndEffects(world);
-        setStackInternal(SLOT_INPUT_TOP, ItemStack.EMPTY);
-        setStackInternal(SLOT_INPUT_SIDE, ItemStack.EMPTY);
-
-        onInventoryChanged();
-    }
-
+    /**
+     * Redstone pulse: if a valid output exists, consume inputs and finalize output.
+     */
     public void tryGrindOnce() {
         if (world == null || world.isClient())
             return;
 
-        recomputeOutputVanilla();
+        if (getStack(SLOT_OUTPUT).isEmpty()) {
+            recomputePreviewOutputIfNeeded();
+        }
         if (getStack(SLOT_OUTPUT).isEmpty())
             return;
 
         if (getStack(SLOT_INPUT_TOP).isEmpty() && getStack(SLOT_INPUT_SIDE).isEmpty())
             return;
 
+        outputFinalized = true;
+
         spawnXpAndEffects(world);
+
         setStackInternal(SLOT_INPUT_TOP, ItemStack.EMPTY);
         setStackInternal(SLOT_INPUT_SIDE, ItemStack.EMPTY);
+
+        onInventoryChanged();
+    }
+
+    /**
+     * Manual UI take: taking the output counts as "manual grind".
+     * IMPORTANT: do NOT check the output slot contents here (it may already be
+     * empty).
+     */
+    public void onOutputTakenByPlayer(World world, ItemStack takenOutput) {
+        if (world.isClient())
+            return;
+        if (takenOutput == null || takenOutput.isEmpty())
+            return;
+
+        // Require inputs exist at the time of take to avoid awarding XP on desync
+        if (getStack(SLOT_INPUT_TOP).isEmpty() && getStack(SLOT_INPUT_SIDE).isEmpty())
+            return;
+
+        outputFinalized = true;
+
+        spawnXpAndEffects(world);
+
+        // Consume inputs so output cannot regenerate
+        setStackInternal(SLOT_INPUT_TOP, ItemStack.EMPTY);
+        setStackInternal(SLOT_INPUT_SIDE, ItemStack.EMPTY);
+
         onInventoryChanged();
     }
 
@@ -110,6 +171,10 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
         }
         world.syncWorldEvent(WorldEvents.GRINDSTONE_USED, this.pos, 0);
     }
+
+    // -------------------------------------------------------------------------
+    // Vanilla XP / output logic (ported)
+    // -------------------------------------------------------------------------
 
     private int getExperience(World world) {
         int i = 0;
@@ -213,7 +278,7 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
     }
 
     // -------------------------------------------------------------------------
-    // Inventory implementation
+    // Inventory
     // -------------------------------------------------------------------------
 
     @Override
@@ -237,27 +302,12 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
 
     @Override
     public ItemStack removeStack(int slot, int amount) {
-        if (slot == SLOT_OUTPUT) {
-            ItemStack full = items.get(SLOT_OUTPUT);
-            if (full.isEmpty())
-                return ItemStack.EMPTY;
-
-            ItemStack result = full.copy();
-            setStackInternal(SLOT_OUTPUT, ItemStack.EMPTY);
-
-            if (world != null && !world.isClient()) {
-                onOutputTaken(world);
-            }
-
-            onInventoryChanged();
-            return result;
-        }
-
         ItemStack result = Inventories.splitStack(items, slot, amount);
         if (!result.isEmpty()) {
             if (slot == SLOT_INPUT_TOP || slot == SLOT_INPUT_SIDE) {
                 setStackInternal(SLOT_OUTPUT, ItemStack.EMPTY);
-                recomputeOutputVanilla();
+                outputFinalized = false;
+                recomputePreviewOutputIfNeeded();
             }
             onInventoryChanged();
         }
@@ -266,27 +316,12 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
 
     @Override
     public ItemStack removeStack(int slot) {
-        if (slot == SLOT_OUTPUT) {
-            ItemStack full = items.get(SLOT_OUTPUT);
-            if (full.isEmpty())
-                return ItemStack.EMPTY;
-
-            ItemStack result = full.copy();
-            setStackInternal(SLOT_OUTPUT, ItemStack.EMPTY);
-
-            if (world != null && !world.isClient()) {
-                onOutputTaken(world);
-            }
-
-            onInventoryChanged();
-            return result;
-        }
-
         ItemStack result = Inventories.removeStack(items, slot);
         if (!result.isEmpty()) {
             if (slot == SLOT_INPUT_TOP || slot == SLOT_INPUT_SIDE) {
                 setStackInternal(SLOT_OUTPUT, ItemStack.EMPTY);
-                recomputeOutputVanilla();
+                outputFinalized = false;
+                recomputePreviewOutputIfNeeded();
             }
             onInventoryChanged();
         }
@@ -296,13 +331,13 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
     @Override
     public void setStack(int slot, ItemStack stack) {
         items.set(slot, stack);
-        if (stack.getCount() > stack.getMaxCount()) {
+        if (stack.getCount() > stack.getMaxCount())
             stack.setCount(stack.getMaxCount());
-        }
 
         if (slot == SLOT_INPUT_TOP || slot == SLOT_INPUT_SIDE) {
             setStackInternal(SLOT_OUTPUT, ItemStack.EMPTY);
-            recomputeOutputVanilla();
+            outputFinalized = false;
+            recomputePreviewOutputIfNeeded();
         }
 
         onInventoryChanged();
@@ -310,9 +345,8 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
 
     private void setStackInternal(int slot, ItemStack stack) {
         items.set(slot, stack);
-        if (stack.getCount() > stack.getMaxCount()) {
+        if (stack.getCount() > stack.getMaxCount())
             stack.setCount(stack.getMaxCount());
-        }
     }
 
     private void onInventoryChanged() {
@@ -334,6 +368,7 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
     @Override
     public void clear() {
         items.clear();
+        outputFinalized = false;
         onInventoryChanged();
     }
 
@@ -345,12 +380,17 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
     protected void writeData(WriteView view) {
         super.writeData(view);
         Inventories.writeData(view, items);
+        view.putBoolean("OutputFinalized", outputFinalized);
     }
 
     @Override
     protected void readData(ReadView view) {
         super.readData(view);
         Inventories.readData(view, items);
+        outputFinalized = view.getBoolean("OutputFinalized", false);
+        if (items.get(SLOT_OUTPUT).isEmpty()) {
+            outputFinalized = false;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -368,10 +408,20 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
 
     @Override
     public boolean canInsert(int slot, ItemStack stack, Direction dir) {
-        if (slot == SLOT_INPUT_TOP || slot == SLOT_INPUT_SIDE) {
-            if (!getStack(SLOT_OUTPUT).isEmpty())
-                return false;
-        }
+        if (slot != SLOT_INPUT_TOP && slot != SLOT_INPUT_SIDE)
+            return false;
+
+        // no new inputs while output exists (preview or finalized)
+        if (!getStack(SLOT_OUTPUT).isEmpty())
+            return false;
+
+        // vanilla validity
+        if (!isValidGrindInput(stack))
+            return false;
+
+        // compatibility with other slot
+        if (!isCompatibleWithOtherSlot(slot, stack))
+            return false;
 
         if (slot == SLOT_INPUT_TOP)
             return dir == Direction.UP;
@@ -382,7 +432,7 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
 
     @Override
     public boolean canExtract(int slot, ItemStack stack, Direction dir) {
-        return slot == SLOT_OUTPUT && dir == Direction.DOWN;
+        return slot == SLOT_OUTPUT && dir == Direction.DOWN && outputFinalized;
     }
 
     // -------------------------------------------------------------------------
