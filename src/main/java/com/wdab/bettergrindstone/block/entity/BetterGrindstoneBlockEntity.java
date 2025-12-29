@@ -9,6 +9,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
 import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.SidedInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.ScreenHandlerContext;
@@ -18,13 +19,18 @@ import net.minecraft.storage.WriteView;
 import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 
 public class BetterGrindstoneBlockEntity extends BlockEntity
-        implements Inventory, ExtendedScreenHandlerFactory<BlockPos> {
+        implements Inventory, SidedInventory, ExtendedScreenHandlerFactory<BlockPos> {
     public static final int SLOT_INPUT_TOP = 0;
     public static final int SLOT_INPUT_SIDE = 1;
     public static final int SLOT_OUTPUT = 2;
     public static final int SIZE = 3;
+
+    private static final int[] SLOTS_UP = new int[] { SLOT_INPUT_TOP };
+    private static final int[] SLOTS_SIDE = new int[] { SLOT_INPUT_SIDE };
+    private static final int[] SLOTS_DOWN = new int[] { SLOT_OUTPUT };
 
     private final DefaultedList<ItemStack> items = DefaultedList.ofSize(SIZE, ItemStack.EMPTY);
 
@@ -56,7 +62,7 @@ public class BetterGrindstoneBlockEntity extends BlockEntity
     public ItemStack removeStack(int slot, int amount) {
         ItemStack result = Inventories.splitStack(items, slot, amount);
         if (!result.isEmpty())
-            markDirty();
+            onInventoryChanged();
         return result;
     }
 
@@ -64,7 +70,7 @@ public class BetterGrindstoneBlockEntity extends BlockEntity
     public ItemStack removeStack(int slot) {
         ItemStack result = Inventories.removeStack(items, slot);
         if (!result.isEmpty())
-            markDirty();
+            onInventoryChanged();
         return result;
     }
 
@@ -74,7 +80,15 @@ public class BetterGrindstoneBlockEntity extends BlockEntity
         if (stack.getCount() > stack.getMaxCount()) {
             stack.setCount(stack.getMaxCount());
         }
+        onInventoryChanged();
+    }
+
+    private void onInventoryChanged() {
         markDirty();
+        if (world != null && !world.isClient()) {
+            // Not strictly needed yet, but it’s the hook we’ll use for comparator later.
+            world.updateComparators(pos, getCachedState().getBlock());
+        }
     }
 
     @Override
@@ -89,7 +103,7 @@ public class BetterGrindstoneBlockEntity extends BlockEntity
     @Override
     public void clear() {
         items.clear();
-        markDirty();
+        onInventoryChanged();
     }
 
     // ---- Persistence (1.21.6+) ----
@@ -103,6 +117,34 @@ public class BetterGrindstoneBlockEntity extends BlockEntity
     protected void readData(ReadView view) {
         super.readData(view);
         Inventories.readData(view, items);
+    }
+
+    // ---- SidedInventory (hoppers) ----
+    @Override
+    public int[] getAvailableSlots(Direction side) {
+        if (side == Direction.UP)
+            return SLOTS_UP;
+        if (side == Direction.DOWN)
+            return SLOTS_DOWN;
+        return SLOTS_SIDE; // north/east/south/west
+    }
+
+    @Override
+    public boolean canInsert(int slot, ItemStack stack, Direction dir) {
+        // Only allow insertion into inputs, and only from the intended sides
+        if (slot == SLOT_INPUT_TOP) {
+            return dir == Direction.UP;
+        }
+        if (slot == SLOT_INPUT_SIDE) {
+            return dir != Direction.UP && dir != Direction.DOWN; // horizontal sides
+        }
+        return false; // never insert into output
+    }
+
+    @Override
+    public boolean canExtract(int slot, ItemStack stack, Direction dir) {
+        // Only extract output, only downward (hopper under)
+        return slot == SLOT_OUTPUT && dir == Direction.DOWN;
     }
 
     // ---- Extended screen opening (data-based) ----
