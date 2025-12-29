@@ -1,0 +1,128 @@
+package com.wdab.bettergrindstone.block.entity;
+
+import com.wdab.bettergrindstone.WDABBetterGrindstone;
+import com.wdab.bettergrindstone.screen.BetterGrindstoneScreenHandler;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.Inventories;
+import net.minecraft.inventory.Inventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.ScreenHandlerContext;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
+import net.minecraft.text.Text;
+import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.util.math.BlockPos;
+
+public class BetterGrindstoneBlockEntity extends BlockEntity
+        implements Inventory, ExtendedScreenHandlerFactory<BlockPos> {
+    public static final int SLOT_INPUT_TOP = 0;
+    public static final int SLOT_INPUT_SIDE = 1;
+    public static final int SLOT_OUTPUT = 2;
+    public static final int SIZE = 3;
+
+    private final DefaultedList<ItemStack> items = DefaultedList.ofSize(SIZE, ItemStack.EMPTY);
+
+    public BetterGrindstoneBlockEntity(BlockPos pos, BlockState state) {
+        super(WDABBetterGrindstone.BETTER_GRINDSTONE_BE, pos, state);
+    }
+
+    // ---- Inventory ----
+    @Override
+    public int size() {
+        return items.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        for (ItemStack stack : items) {
+            if (!stack.isEmpty())
+                return false;
+        }
+        return true;
+    }
+
+    @Override
+    public ItemStack getStack(int slot) {
+        return items.get(slot);
+    }
+
+    @Override
+    public ItemStack removeStack(int slot, int amount) {
+        ItemStack result = Inventories.splitStack(items, slot, amount);
+        if (!result.isEmpty())
+            markDirty();
+        return result;
+    }
+
+    @Override
+    public ItemStack removeStack(int slot) {
+        ItemStack result = Inventories.removeStack(items, slot);
+        if (!result.isEmpty())
+            markDirty();
+        return result;
+    }
+
+    @Override
+    public void setStack(int slot, ItemStack stack) {
+        items.set(slot, stack);
+        if (stack.getCount() > stack.getMaxCount()) {
+            stack.setCount(stack.getMaxCount());
+        }
+        markDirty();
+    }
+
+    @Override
+    public boolean canPlayerUse(PlayerEntity player) {
+        if (world == null)
+            return false;
+        if (world.getBlockEntity(pos) != this)
+            return false;
+        return player.squaredDistanceTo(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
+    }
+
+    @Override
+    public void clear() {
+        items.clear();
+        markDirty();
+    }
+
+    // ---- Persistence (1.21.6+) ----
+    @Override
+    protected void writeData(WriteView view) {
+        super.writeData(view);
+        Inventories.writeData(view, items);
+    }
+
+    @Override
+    protected void readData(ReadView view) {
+        super.readData(view);
+        Inventories.readData(view, items);
+    }
+
+    // ---- Extended screen opening (data-based) ----
+    @Override
+    public BlockPos getScreenOpeningData(ServerPlayerEntity player) {
+        return this.pos;
+    }
+
+    // ---- Screen ----
+    @Override
+    public Text getDisplayName() {
+        return Text.translatable("block.wdab-better-grindstone.better_grindstone");
+    }
+
+    @Override
+    public ScreenHandler createMenu(int syncId, PlayerInventory playerInventory, PlayerEntity player) {
+        return new BetterGrindstoneScreenHandler(
+                syncId,
+                playerInventory,
+                this,
+                ScreenHandlerContext.create(this.world, this.pos));
+    }
+}
