@@ -60,13 +60,13 @@ public class WDABBetterGrindstone implements ModInitializer {
         BETTER_GRINDSTONE_BE = Registry.register(
                 Registries.BLOCK_ENTITY_TYPE,
                 BETTER_GRINDSTONE_ID,
-                FabricBlockEntityTypeBuilder.create(BetterGrindstoneBlockEntity::new, BETTER_GRINDSTONE).build());
+                FabricBlockEntityTypeBuilder.create(BetterGrindstoneBlockEntity::new, BETTER_GRINDSTONE).build()
+        );
 
         BETTER_GRINDSTONE_SCREEN_HANDLER = Registry.register(
                 Registries.SCREEN_HANDLER,
-                BETTER_GRINDSTONE_ID,
-                new ExtendedScreenHandlerType<>(
-                        BetterGrindstoneScreenHandler::new,
-                        BlockPos.PACKET_CODEC));
+                id("better_grindstone"),
+                new ExtendedScreenHandlerType<>(BetterGrindstoneScreenHandler::new, BlockPos.PACKET_CODEC)
+        );
     }
 }

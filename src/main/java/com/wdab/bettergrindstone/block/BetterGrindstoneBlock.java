@@ -15,8 +15,9 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
+import net.minecraft.world.block.WireOrientation;
 
 public class BetterGrindstoneBlock extends BlockWithEntity {
     public static final MapCodec<BetterGrindstoneBlock> CODEC = createCodec(BetterGrindstoneBlock::new);
@@ -25,7 +26,7 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
 
     public BetterGrindstoneBlock(Settings settings) {
         super(settings);
-        this.setDefaultState(this.getStateManager().getDefaultState().with(POWERED, false));
+        this.setDefaultState(this.stateManager.getDefaultState().with(POWERED, false));
     }
 
     @Override
@@ -48,6 +49,7 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
         return BlockRenderType.MODEL;
     }
 
+    // Open UI
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
         if (world.isClient())
@@ -62,6 +64,7 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
         return ActionResult.PASS;
     }
 
+    // Drop inventory on break
     @Override
     protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
         BlockEntity be = world.getBlockEntity(pos);
@@ -72,41 +75,53 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
         super.onStateReplaced(state, world, pos, moved);
     }
 
-    // ---- Comparator output (your 1.21.11 signature) ----
-    protected boolean hasComparatorOutput(BlockState state) {
-        return true;
-    }
-
-    protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
-        BlockEntity be = world.getBlockEntity(pos);
-        if (be instanceof BetterGrindstoneBlockEntity grindstoneBe) {
-            return grindstoneBe.getStack(BetterGrindstoneBlockEntity.SLOT_OUTPUT).isEmpty() ? 0 : 15;
-        }
-        return 0;
-    }
-
-    // ---- Redstone pulse activation ----
-    // NOTE: In your mappings, the super method name/signature differs, so we do NOT
-    // @Override.
-    // Minecraft will still call this method if it matches the actual runtime
-    // signature.
-    protected void neighborUpdate(BlockState state, World world, BlockPos pos, Block sourceBlock, BlockPos sourcePos,
+    /**
+     * 1.21.11 signature uses WireOrientation (net.minecraft.world.block).
+     * We detect rising edge and trigger one grind.
+     */
+    @Override
+    protected void neighborUpdate(
+            BlockState state,
+            World world,
+            BlockPos pos,
+            Block sourceBlock,
+            WireOrientation wireOrientation,
             boolean notify) {
-        if (world.isClient())
-            return;
+        if (!world.isClient()) {
+            boolean isPoweredNow = world.isReceivingRedstonePower(pos);
+            boolean wasPowered = state.get(POWERED);
 
-        boolean nowPowered = world.isReceivingRedstonePower(pos);
+            // Rising edge: OFF -> ON
+            if (!wasPowered && isPoweredNow) {
+                BlockEntity be = world.getBlockEntity(pos);
+                if (be instanceof BetterGrindstoneBlockEntity grindstoneBe) {
+                    grindstoneBe.tryGrindOnce();
+                }
+            }
+
+            // Keep POWERED state synced so we can detect edges
+            if (wasPowered != isPoweredNow) {
+                world.setBlockState(pos, state.with(POWERED, isPoweredNow), Block.NOTIFY_ALL);
+            }
+        }
+
+        super.neighborUpdate(state, world, pos, sourceBlock, wireOrientation, notify);
+    }
+
+    @Override
+    protected void scheduledTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
+        boolean isPoweredNow = world.isReceivingRedstonePower(pos);
         boolean wasPowered = state.get(POWERED);
 
-        if (nowPowered && !wasPowered) {
+        if (!wasPowered && isPoweredNow) {
             BlockEntity be = world.getBlockEntity(pos);
             if (be instanceof BetterGrindstoneBlockEntity grindstoneBe) {
                 grindstoneBe.tryGrindOnce();
             }
         }
 
-        if (nowPowered != wasPowered) {
-            world.setBlockState(pos, state.with(POWERED, nowPowered), 3);
+        if (wasPowered != isPoweredNow) {
+            world.setBlockState(pos, state.with(POWERED, isPoweredNow), Block.NOTIFY_ALL);
         }
     }
 }
