@@ -12,7 +12,7 @@
         "sources": "https://github.com/aidanmc1122/wdab-better-grindstone",
         "issues": "https://github.com/aidanmc1122/wdab-better-grindstone/issues"
     },
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/wdab-better-grindstone/icon.png",
 	"environment": "*",
 	"entrypoints": {
