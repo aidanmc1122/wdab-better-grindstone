@@ -5,6 +5,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.gui.screen.ingame.HandledScreens;
 
 public class WDABBetterGrindstoneClient implements ClientModInitializer {
+    // Register the Better Grindstone screen
     @Override
     public void onInitializeClient() {
         HandledScreens.register(

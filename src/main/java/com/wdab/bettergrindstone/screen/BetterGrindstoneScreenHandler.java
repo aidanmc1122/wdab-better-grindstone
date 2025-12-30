@@ -15,10 +15,11 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 public class BetterGrindstoneScreenHandler extends ScreenHandler {
+    // Inventory and context for the grindstone
     private final Inventory inventory;
     private final ScreenHandlerContext context;
 
-    // Server-side constructor (BlockEntity passes its inventory + context)
+    // Constructor
     public BetterGrindstoneScreenHandler(
             int syncId,
             PlayerInventory playerInv,
@@ -27,11 +28,13 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
         super(WDABBetterGrindstone.BETTER_GRINDSTONE_SCREEN_HANDLER, syncId);
         checkSize(inventory, BetterGrindstoneBlockEntity.SIZE);
 
+        // Initialize inventory and context
         this.inventory = inventory;
         this.context = context;
 
-        // Inputs (match your texture slot positions)
+        // Add top input slot
         this.addSlot(new Slot(inventory, BetterGrindstoneBlockEntity.SLOT_INPUT_TOP, 49, 19) {
+            // Override to validate item insertion
             @Override
             public boolean canInsert(ItemStack stack) {
                 if (!(inventory instanceof BetterGrindstoneBlockEntity be)) {
@@ -43,7 +46,9 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
             }
         });
 
+        // Add side input slot
         this.addSlot(new Slot(inventory, BetterGrindstoneBlockEntity.SLOT_INPUT_SIDE, 49, 40) {
+            // Override to validate item insertion
             @Override
             public boolean canInsert(ItemStack stack) {
                 if (!(inventory instanceof BetterGrindstoneBlockEntity be)) {
@@ -55,16 +60,17 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
             }
         });
 
-        // Output
+        // Add output slot
         this.addSlot(new Slot(inventory, BetterGrindstoneBlockEntity.SLOT_OUTPUT, 129, 34) {
+            // Override to prevent item insertion
             @Override
             public boolean canInsert(ItemStack stack) {
                 return false;
             }
 
+            // Override to handle output item taken by player
             @Override
             public void onTakeItem(PlayerEntity player, ItemStack stack) {
-                // ✅ Call the method that exists in your BE
                 if (inventory instanceof BetterGrindstoneBlockEntity be) {
                     World world = player.getEntityWorld();
                     be.onOutputTakenByPlayer(world, stack);
@@ -73,15 +79,11 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
             }
         });
 
-        // Player inventory (vanilla-ish placement; adjust if your texture differs)
+        // Add player inventory slots
         this.addPlayerSlots(playerInv, 8, 84);
     }
 
-    /**
-     * Factory constructor for ExtendedScreenHandlerType:
-     * signature must be (int, PlayerInventory, D) where D is opening data
-     * (BlockPos).
-     */
+    // Helper method to add player inventory slots
     public BetterGrindstoneScreenHandler(int syncId, PlayerInventory playerInv, BlockPos pos) {
         this(
                 syncId,
@@ -90,6 +92,7 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
                 ScreenHandlerContext.create(playerInv.player.getEntityWorld(), pos));
     }
 
+    // Helper method to get the inventory at a specific position
     private static Inventory getInventoryAt(PlayerInventory playerInv, BlockPos pos) {
         World world = playerInv.player.getEntityWorld();
         if (world.getBlockEntity(pos) instanceof BetterGrindstoneBlockEntity be) {
@@ -98,50 +101,65 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
         return new SimpleInventory(BetterGrindstoneBlockEntity.SIZE);
     }
 
+    // Add player inventory and hotbar slots
     @Override
     public boolean canUse(PlayerEntity player) {
         return inventory.canPlayerUse(player);
     }
 
+    // Handle shift-click item transfers
     @Override
     public ItemStack quickMove(PlayerEntity player, int index) {
         ItemStack newStack = ItemStack.EMPTY;
         Slot slot = this.slots.get(index);
+
+        // Check if the slot has an item
         if (slot == null || !slot.hasStack()) {
             return ItemStack.EMPTY;
         }
 
+        // Get the original stack
         ItemStack original = slot.getStack();
+
+        // Copy the original stack for return value
         newStack = original.copy();
 
+        // Determine the size of the block inventory
         int blockInvSize = BetterGrindstoneBlockEntity.SIZE;
 
+        // Handle item transfer between block inventory and player inventory
         boolean moved;
         if (index < blockInvSize) {
             moved = this.insertItem(original, blockInvSize, this.slots.size(), true);
+            // Attempt to move item from block inventory to player inventory
             if (!moved)
                 return ItemStack.EMPTY;
 
+            // Notify block entity if output slot item is taken
             if (index == BetterGrindstoneBlockEntity.SLOT_OUTPUT
                     && this.inventory instanceof BetterGrindstoneBlockEntity be) {
                 be.onOutputTakenByPlayer(player.getEntityWorld(), newStack);
             }
         } else {
+            // Attempt to move item from player inventory to block inventory
             moved = this.insertItem(original, 0, 2, false);
             if (!moved)
                 return ItemStack.EMPTY;
         }
 
+        // Update the slot based on the transfer result
         if (original.isEmpty()) {
             slot.setStack(ItemStack.EMPTY);
         } else {
             slot.markDirty();
         }
 
+        // Check if the item count has changed after transfer
         if (original.getCount() == newStack.getCount()) {
             return ItemStack.EMPTY;
         }
 
+        // Notify the slot that an item has been taken
         slot.onTakeItem(player, original);
         return newStack;
     }

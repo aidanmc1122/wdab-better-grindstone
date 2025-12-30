@@ -20,26 +20,30 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 public class WDABBetterGrindstone implements ModInitializer {
+    // Mod identifier
     public static final String MOD_ID = "wdab-better-grindstone";
 
+    // Helper method to create Identifiers
     public static Identifier id(String path) {
         return Identifier.of(MOD_ID, path);
     }
 
+    // Registry keys
     public static final Identifier BETTER_GRINDSTONE_ID = id("better_grindstone");
     public static final RegistryKey<net.minecraft.block.Block> BETTER_GRINDSTONE_BLOCK_KEY = RegistryKey
             .of(RegistryKeys.BLOCK, BETTER_GRINDSTONE_ID);
     public static final RegistryKey<Item> BETTER_GRINDSTONE_ITEM_KEY = RegistryKey.of(RegistryKeys.ITEM,
             BETTER_GRINDSTONE_ID);
 
+    // Mod objects
     public static Block BETTER_GRINDSTONE;
     public static BlockEntityType<BetterGrindstoneBlockEntity> BETTER_GRINDSTONE_BE;
     public static ScreenHandlerType<BetterGrindstoneScreenHandler> BETTER_GRINDSTONE_SCREEN_HANDLER;
 
+    // Mod initialization
     @Override
     public void onInitialize() {
-        // IMPORTANT: settings must carry the BLOCK registry key before Block
-        // construction (1.21.11)
+        // Initialize and register the Better Grindstone block
         var settings = Block.Settings
                 .create()
                 .registryKey(BETTER_GRINDSTONE_BLOCK_KEY)
@@ -48,8 +52,10 @@ public class WDABBetterGrindstone implements ModInitializer {
 
         BETTER_GRINDSTONE = new BetterGrindstoneBlock(settings);
 
+        // Register the Better Grindstone block
         Registry.register(Registries.BLOCK, BETTER_GRINDSTONE_ID, BETTER_GRINDSTONE);
 
+        // Register the Better Grindstone block item
         Registry.register(
                 Registries.ITEM,
                 BETTER_GRINDSTONE_ID,
@@ -57,16 +63,16 @@ public class WDABBetterGrindstone implements ModInitializer {
                         BETTER_GRINDSTONE,
                         new Item.Settings().registryKey(BETTER_GRINDSTONE_ITEM_KEY)));
 
+        // Register the Better Grindstone block entity type
         BETTER_GRINDSTONE_BE = Registry.register(
                 Registries.BLOCK_ENTITY_TYPE,
                 BETTER_GRINDSTONE_ID,
-                FabricBlockEntityTypeBuilder.create(BetterGrindstoneBlockEntity::new, BETTER_GRINDSTONE).build()
-        );
+                FabricBlockEntityTypeBuilder.create(BetterGrindstoneBlockEntity::new, BETTER_GRINDSTONE).build());
 
+        // Register the screen handler type with block position context
         BETTER_GRINDSTONE_SCREEN_HANDLER = Registry.register(
                 Registries.SCREEN_HANDLER,
                 id("better_grindstone"),
-                new ExtendedScreenHandlerType<>(BetterGrindstoneScreenHandler::new, BlockPos.PACKET_CODEC)
-        );
+                new ExtendedScreenHandlerType<>(BetterGrindstoneScreenHandler::new, BlockPos.PACKET_CODEC));
     }
 }

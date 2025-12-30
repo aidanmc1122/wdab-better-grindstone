@@ -9,32 +9,38 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 public class BetterGrindstoneScreen extends HandledScreen<BetterGrindstoneScreenHandler> {
-    // Resolves to: assets/wdab-better-grindstone/textures/gui/better_grindstone.png
+    // Texture for the better grindstone GUI
     private static final Identifier TEXTURE = Identifier.of(WDABBetterGrindstone.MOD_ID,
             "textures/gui/better_grindstone.png");
 
-    // Vanilla UI atlas size
+    // Texture dimensions (same as vanilla grindstone)
     private static final int TEX_W = 256;
     private static final int TEX_H = 256;
 
+    // Constructor
     public BetterGrindstoneScreen(BetterGrindstoneScreenHandler handler, PlayerInventory inventory, Text title) {
         super(handler, inventory, title);
 
-        // Vanilla grindstone screen size
+        // Set GUI dimensions and title positions
         this.backgroundWidth = 176;
         this.backgroundHeight = 166;
 
+        // Title and inventory label positions (same as vanilla grindstone)
         this.titleX = 8;
         this.titleY = 6;
         this.playerInventoryTitleX = 8;
         this.playerInventoryTitleY = 72;
     }
 
+    // Draw the background of the GUI
     @Override
     protected void drawBackground(DrawContext context, float delta, int mouseX, int mouseY) {
+
+        // Calculate top-left corner of the GUI
         int x = (this.width - this.backgroundWidth) / 2;
         int y = (this.height - this.backgroundHeight) / 2;
 
+        // Draw the GUI background
         context.drawTexture(
                 RenderPipelines.GUI_TEXTURED,
                 TEXTURE,
@@ -48,6 +54,7 @@ public class BetterGrindstoneScreen extends HandledScreen<BetterGrindstoneScreen
                 TEX_H);
     }
 
+    // Render the entire screen
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         this.renderBackground(context, mouseX, mouseY, delta);

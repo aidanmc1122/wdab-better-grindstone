@@ -9,12 +9,10 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.GrindstoneBlock;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.BooleanProperty;
 import net.minecraft.util.ActionResult;
-import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -23,32 +21,38 @@ import net.minecraft.world.World;
 import net.minecraft.world.block.WireOrientation;
 
 public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntityProvider {
+    // Codec for serialization/deserialization
     public static final MapCodec<GrindstoneBlock> CODEC = createCodec(BetterGrindstoneBlock::new);
 
+    // Property to track powered state
     public static final BooleanProperty POWERED = BooleanProperty.of("powered");
 
+    // Constructor
     public BetterGrindstoneBlock(Settings settings) {
         super(settings);
         this.setDefaultState(this.getDefaultState().with(POWERED, false));
     }
 
+    // Get the codec for this block
     @Override
     public MapCodec<GrindstoneBlock> getCodec() {
         return CODEC;
     }
 
+    // Append properties to the block state
     @Override
     protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
         super.appendProperties(builder);
         builder.add(POWERED);
     }
 
+    // Create the block entity for this block
     @Override
     public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
         return new BetterGrindstoneBlockEntity(pos, state);
     }
 
-    // Use YOUR UI, not vanilla grindstone UI.
+    // Handle block interaction
     @Override
     protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
         if (world.isClient())
@@ -62,7 +66,7 @@ public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntit
         return ActionResult.PASS;
     }
 
-    // Drop BE inventory when broken.
+    // Handle block state replacement
     @Override
     protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
         BlockEntity be = world.getBlockEntity(pos);
@@ -72,6 +76,7 @@ public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntit
         super.onStateReplaced(state, world, pos, moved);
     }
 
+    // Handle block breaking
     @Override
     public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
         if (!world.isClient()) {
@@ -83,10 +88,7 @@ public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntit
         return super.onBreak(world, pos, state, player);
     }
 
-    /**
-     * 1.21.11 neighborUpdate signature uses WireOrientation.
-     * Rising-edge pulse triggers exactly one grind.
-     */
+    // Handle neighbor updates (redstone power changes)
     @Override
     protected void neighborUpdate(
             BlockState state,
@@ -115,6 +117,7 @@ public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntit
         super.neighborUpdate(state, world, pos, sourceBlock, wireOrientation, notify);
     }
 
+    // Scheduled tick to check redstone power changes
     @Override
     protected void scheduledTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
         boolean now = world.isReceivingRedstonePower(pos);
@@ -132,11 +135,13 @@ public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntit
         }
     }
 
+    // Determine if the block has comparator output
     @Override
     protected boolean hasComparatorOutput(BlockState state) {
         return true;
     }
 
+    // Get the comparator output level based on the block entity's inventory
     @Override
     protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
         BlockEntity be = world.getBlockEntity(pos);
@@ -149,16 +154,15 @@ public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntit
 
         boolean hasAnyInput = top || side;
 
-        // ✅ If there are no inputs, it cannot be triggered -> no signal,
-        // even if an output item is sitting there.
+        // No input items
         if (!hasAnyInput)
             return 0;
 
-        // ✅ Ready/triggerable when output exists while inputs are present
+        // Output item present and at least one input item
         if (out)
             return 15;
 
-        // Loaded but not ready (e.g., only a damaged non-enchanted item)
+        // One input item present
         return 8;
     }
 }

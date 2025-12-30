@@ -3,14 +3,15 @@
 	"id": "wdab-better-grindstone",
 	"version": "${version}",
 	"name": "WDAB Better Grindstone",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "An enhanced grindstone with redstone signals, hopper support, and automation-friendly behavior.",
 	"authors": [
-		"Me!"
+		"Aidan McCarthy"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
+        "homepage": "https://github.com/aidanmc1122/wdab-better-grindstone",
+        "sources": "https://github.com/aidanmc1122/wdab-better-grindstone",
+        "issues": "https://github.com/aidanmc1122/wdab-better-grindstone/issues"
+    },
 	"license": "CC0-1.0",
 	"icon": "assets/wdab-better-grindstone/icon.png",
 	"environment": "*",
@@ -24,8 +25,19 @@
 	},
 	"depends": {
 		"fabricloader": ">=0.18.4",
-		"minecraft": "~1.21.11",
+		"minecraft": "1.21.11",
 		"java": ">=21",
 		"fabric-api": "*"
-	}
+	},
+    "recommends": {
+        "modmenu": "*"
+    },
+    "custom": {
+        "modmenu": {
+            "badges": [
+                "library",
+                "feature"
+            ]
+        }
+    }
 }
