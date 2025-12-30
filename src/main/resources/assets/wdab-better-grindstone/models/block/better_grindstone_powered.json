@@ -1,0 +1,10 @@
+{
+    "parent": "minecraft:block/grindstone",
+    "textures": {
+        "side": "wdab-better-grindstone:block/better_grindstone_side_powered",
+        "pivot": "wdab-better-grindstone:block/better_grindstone_pivot_powered",
+        "round": "wdab-better-grindstone:block/better_grindstone_front_powered",
+        "particle": "wdab-better-grindstone:block/better_grindstone_side_powered",
+        "leg": "wdab-better-grindstone:block/better_grindstone_pivot_powered"
+    }
+}

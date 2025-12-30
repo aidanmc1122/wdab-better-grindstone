@@ -1,0 +1,16 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "RRR",
+        "RGR",
+        "RRR"
+    ],
+    "key": {
+        "R": "minecraft:redstone",
+        "G": "minecraft:grindstone"
+    },
+    "result": {
+        "id": "wdab-better-grindstone:better_grindstone",
+        "count": 1
+    }
+}

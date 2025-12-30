@@ -116,16 +116,20 @@ public class BetterGrindstoneScreenHandler extends ScreenHandler {
 
         int blockInvSize = BetterGrindstoneBlockEntity.SIZE;
 
+        boolean moved;
         if (index < blockInvSize) {
-            // from block -> player
-            if (!this.insertItem(original, blockInvSize, this.slots.size(), true)) {
+            moved = this.insertItem(original, blockInvSize, this.slots.size(), true);
+            if (!moved)
                 return ItemStack.EMPTY;
+
+            if (index == BetterGrindstoneBlockEntity.SLOT_OUTPUT
+                    && this.inventory instanceof BetterGrindstoneBlockEntity be) {
+                be.onOutputTakenByPlayer(player.getEntityWorld(), newStack);
             }
         } else {
-            // from player -> block inputs only (0..2 exclusive of output slot)
-            if (!this.insertItem(original, 0, 2, false)) {
+            moved = this.insertItem(original, 0, 2, false);
+            if (!moved)
                 return ItemStack.EMPTY;
-            }
         }
 
         if (original.isEmpty()) {

@@ -2,12 +2,14 @@ package com.wdab.bettergrindstone.block;
 
 import com.mojang.serialization.MapCodec;
 import com.wdab.bettergrindstone.block.entity.BetterGrindstoneBlockEntity;
+
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockRenderType;
+import net.minecraft.block.BlockEntityProvider;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
+import net.minecraft.block.GrindstoneBlock;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.BooleanProperty;
@@ -15,27 +17,29 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 import net.minecraft.world.block.WireOrientation;
 
-public class BetterGrindstoneBlock extends BlockWithEntity {
-    public static final MapCodec<BetterGrindstoneBlock> CODEC = createCodec(BetterGrindstoneBlock::new);
+public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntityProvider {
+    public static final MapCodec<GrindstoneBlock> CODEC = createCodec(BetterGrindstoneBlock::new);
 
     public static final BooleanProperty POWERED = BooleanProperty.of("powered");
 
     public BetterGrindstoneBlock(Settings settings) {
         super(settings);
-        this.setDefaultState(this.stateManager.getDefaultState().with(POWERED, false));
+        this.setDefaultState(this.getDefaultState().with(POWERED, false));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
+    public MapCodec<GrindstoneBlock> getCodec() {
         return CODEC;
     }
 
     @Override
     protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+        super.appendProperties(builder);
         builder.add(POWERED);
     }
 
@@ -44,14 +48,9 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
         return new BetterGrindstoneBlockEntity(pos, state);
     }
 
+    // Use YOUR UI, not vanilla grindstone UI.
     @Override
-    public BlockRenderType getRenderType(BlockState state) {
-        return BlockRenderType.MODEL;
-    }
-
-    // Open UI
-    @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
+    protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
         if (world.isClient())
             return ActionResult.SUCCESS;
 
@@ -60,11 +59,10 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
             player.openHandledScreen(factory);
             return ActionResult.CONSUME;
         }
-
         return ActionResult.PASS;
     }
 
-    // Drop inventory on break
+    // Drop BE inventory when broken.
     @Override
     protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
         BlockEntity be = world.getBlockEntity(pos);
@@ -76,8 +74,8 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
     }
 
     /**
-     * 1.21.11 signature uses WireOrientation (net.minecraft.world.block).
-     * We detect rising edge and trigger one grind.
+     * 1.21.11 neighborUpdate signature uses WireOrientation.
+     * Rising-edge pulse triggers exactly one grind.
      */
     @Override
     protected void neighborUpdate(
@@ -87,21 +85,20 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
             Block sourceBlock,
             WireOrientation wireOrientation,
             boolean notify) {
-        if (!world.isClient()) {
-            boolean isPoweredNow = world.isReceivingRedstonePower(pos);
-            boolean wasPowered = state.get(POWERED);
 
-            // Rising edge: OFF -> ON
-            if (!wasPowered && isPoweredNow) {
+        if (!world.isClient()) {
+            boolean now = world.isReceivingRedstonePower(pos);
+            boolean was = state.get(POWERED);
+
+            if (!was && now) {
                 BlockEntity be = world.getBlockEntity(pos);
                 if (be instanceof BetterGrindstoneBlockEntity grindstoneBe) {
                     grindstoneBe.tryGrindOnce();
                 }
             }
 
-            // Keep POWERED state synced so we can detect edges
-            if (wasPowered != isPoweredNow) {
-                world.setBlockState(pos, state.with(POWERED, isPoweredNow), Block.NOTIFY_ALL);
+            if (was != now) {
+                world.setBlockState(pos, state.with(POWERED, now), Block.NOTIFY_ALL);
             }
         }
 
@@ -110,18 +107,48 @@ public class BetterGrindstoneBlock extends BlockWithEntity {
 
     @Override
     protected void scheduledTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
-        boolean isPoweredNow = world.isReceivingRedstonePower(pos);
-        boolean wasPowered = state.get(POWERED);
+        boolean now = world.isReceivingRedstonePower(pos);
+        boolean was = state.get(POWERED);
 
-        if (!wasPowered && isPoweredNow) {
+        if (!was && now) {
             BlockEntity be = world.getBlockEntity(pos);
             if (be instanceof BetterGrindstoneBlockEntity grindstoneBe) {
                 grindstoneBe.tryGrindOnce();
             }
         }
 
-        if (wasPowered != isPoweredNow) {
-            world.setBlockState(pos, state.with(POWERED, isPoweredNow), Block.NOTIFY_ALL);
+        if (was != now) {
+            world.setBlockState(pos, state.with(POWERED, now), Block.NOTIFY_ALL);
         }
+    }
+
+    @Override
+    protected boolean hasComparatorOutput(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
+        BlockEntity be = world.getBlockEntity(pos);
+        if (!(be instanceof BetterGrindstoneBlockEntity g))
+            return 0;
+
+        boolean top = !g.getStack(BetterGrindstoneBlockEntity.SLOT_INPUT_TOP).isEmpty();
+        boolean side = !g.getStack(BetterGrindstoneBlockEntity.SLOT_INPUT_SIDE).isEmpty();
+        boolean out = !g.getStack(BetterGrindstoneBlockEntity.SLOT_OUTPUT).isEmpty();
+
+        boolean hasAnyInput = top || side;
+
+        // ✅ If there are no inputs, it cannot be triggered -> no signal,
+        // even if an output item is sitting there.
+        if (!hasAnyInput)
+            return 0;
+
+        // ✅ Ready/triggerable when output exists while inputs are present
+        if (out)
+            return 15;
+
+        // Loaded but not ready (e.g., only a damaged non-enchanted item)
+        return 8;
     }
 }

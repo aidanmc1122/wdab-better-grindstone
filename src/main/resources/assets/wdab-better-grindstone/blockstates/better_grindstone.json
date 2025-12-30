@@ -1,0 +1,110 @@
+{
+    "variants": {
+        "powered=false,face=floor,facing=north": {
+            "model": "wdab-better-grindstone:block/better_grindstone"
+        },
+        "powered=false,face=floor,facing=east": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "y": 90
+        },
+        "powered=false,face=floor,facing=south": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "y": 180
+        },
+        "powered=false,face=floor,facing=west": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "y": 270
+        },
+        "powered=false,face=wall,facing=north": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "x": 90
+        },
+        "powered=false,face=wall,facing=east": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "x": 90,
+            "y": 90
+        },
+        "powered=false,face=wall,facing=south": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "x": 90,
+            "y": 180
+        },
+        "powered=false,face=wall,facing=west": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "x": 90,
+            "y": 270
+        },
+        "powered=false,face=ceiling,facing=south": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "x": 180
+        },
+        "powered=false,face=ceiling,facing=west": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "x": 180,
+            "y": 90
+        },
+        "powered=false,face=ceiling,facing=north": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "x": 180,
+            "y": 180
+        },
+        "powered=false,face=ceiling,facing=east": {
+            "model": "wdab-better-grindstone:block/better_grindstone",
+            "x": 180,
+            "y": 270
+        },
+        "powered=true,face=floor,facing=north": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered"
+        },
+        "powered=true,face=floor,facing=east": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "y": 90
+        },
+        "powered=true,face=floor,facing=south": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "y": 180
+        },
+        "powered=true,face=floor,facing=west": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "y": 270
+        },
+        "powered=true,face=wall,facing=north": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "x": 90
+        },
+        "powered=true,face=wall,facing=east": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "x": 90,
+            "y": 90
+        },
+        "powered=true,face=wall,facing=south": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "x": 90,
+            "y": 180
+        },
+        "powered=true,face=wall,facing=west": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "x": 90,
+            "y": 270
+        },
+        "powered=true,face=ceiling,facing=south": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "x": 180
+        },
+        "powered=true,face=ceiling,facing=west": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "x": 180,
+            "y": 90
+        },
+        "powered=true,face=ceiling,facing=north": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "x": 180,
+            "y": 180
+        },
+        "powered=true,face=ceiling,facing=east": {
+            "model": "wdab-better-grindstone:block/better_grindstone_powered",
+            "x": 180,
+            "y": 270
+        }
+    }
+}
