@@ -29,6 +29,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.storage.ReadView;
 import net.minecraft.storage.WriteView;
 import net.minecraft.text.Text;
+import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -297,6 +298,10 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
 
     @Override
     public ItemStack getStack(int slot) {
+        // ✅ During block break drops, hide preview output so it can't dupe
+        if (slot == SLOT_OUTPUT && suppressPreviewOutputDropOnce && !outputFinalized) {
+            return ItemStack.EMPTY;
+        }
         return items.get(slot);
     }
 
@@ -456,5 +461,15 @@ public class BetterGrindstoneBlockEntity extends net.minecraft.block.entity.Bloc
                 playerInventory,
                 this,
                 ScreenHandlerContext.create(this.world, this.pos));
+    }
+
+    // Add this field
+    private boolean suppressPreviewOutputDropOnce = false;
+
+    // Call this right before vanilla drops items
+    public void suppressPreviewOutputDropOnce() {
+        if (!outputFinalized) {
+            this.suppressPreviewOutputDropOnce = true;
+        }
     }
 }

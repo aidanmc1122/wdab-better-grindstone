@@ -66,11 +66,21 @@ public class BetterGrindstoneBlock extends GrindstoneBlock implements BlockEntit
     @Override
     protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
         BlockEntity be = world.getBlockEntity(pos);
-        if (be instanceof BetterGrindstoneBlockEntity invBe) {
-            ItemScatterer.spawn(world, pos, invBe);
-            world.updateComparators(pos, this);
+        if (be instanceof BetterGrindstoneBlockEntity g) {
+            g.suppressPreviewOutputDropOnce();
         }
         super.onStateReplaced(state, world, pos, moved);
+    }
+
+    @Override
+    public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
+        if (!world.isClient()) {
+            BlockEntity be = world.getBlockEntity(pos);
+            if (be instanceof BetterGrindstoneBlockEntity g) {
+                g.suppressPreviewOutputDropOnce();
+            }
+        }
+        return super.onBreak(world, pos, state, player);
     }
 
     /**
